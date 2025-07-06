@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Quản Lý Kho - Hàng Hoá</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        form {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        label {
+            font-weight: bold;
+        }
+
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+        }
+
+        button {
+            grid-column: span 3;
+            padding: 10px;
+            background-color: #007bff;
+            border: none;
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th, td {
+            padding: 10px 15px;
+            border-bottom: 1px solid #ddd;
+            text-align: center;
+        }
+
+        th {
+            background-color: #007bff;
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <h1>Quản Lý Kho - Bảng Hàng Hoá</h1>
+    <div class="container">
+        <form id="productForm">
+            <div>
+                <label for="MaHH">Mã HH</label>
+                <input type="text" id="MaHH" required>
+            </div>
+
+            <div>
+                <label for="TenHH">Tên HH</label>
+                <input type="text" id="TenHH" required>
+            </div>
+
+            <div>
+                <label for="Loai">Loại</label>
+                <input type="text" id="Loai">
+            </div>
+
+            <div>
+                <label for="DonVi">Đơn Vị</label>
+                <input type="text" id="DonVi">
+            </div>
+
+            <div>
+                <label for="GiaNhap">Giá Nhập</label>
+                <input type="number" id="GiaNhap" min="0" step="0.01">
+            </div>
+
+            <div>
+                <label for="GiaBan">Giá Bán</label>
+                <input type="number" id="GiaBan" min="0" step="0.01">
+            </div>
+
+            <div>
+                <label for="SoLuongTon">Số Lượng Tồn</label>
+                <input type="number" id="SoLuongTon" min="0">
+            </div>
+
+            <button type="button" onclick="addProduct()">Thêm Sản Phẩm</button>
+        </form>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Mã HH</th>
+                    <th>Tên HH</th>
+                    <th>Loại</th>
+                    <th>Đơn Vị</th>
+                    <th>Giá Nhập</th>
+                    <th>Giá Bán</th>
+                    <th>Số Lượng</th>
+                    <th>Thao Tác</th>
+                </tr>
+            </thead>
+            <tbody id="productTableBody">
+                <!-- Dữ liệu từ API sẽ hiển thị ở đây -->
+            </tbody>
+        </table>
+
+    </div>
+
+    <script>
+        const productTableBody = document.getElementById('productTableBody');
+
+        // Hiển thị danh sách sản phẩm với nút Sửa/Xoá
+        async function loadProducts() {
+            productTableBody.innerHTML = '';
+            try {
+                const res = await fetch('http://localhost:5000/api/hanghoa');
+                const data = await res.json();
+                if (Array.isArray(data)) {
+                    data.forEach(product => {
+                        const row = `
+                            <tr>
+                                <td>${product.MaHH}</td>
+                                <td>${product.TenHH}</td>
+                                <td>${product.Loai}</td>
+                                <td>${product.DonVi}</td>
+                                <td>${product.GiaNhap}</td>
+                                <td>${product.GiaBan}</td>
+                                <td>${product.SoLuongTon !== undefined ? product.SoLuongTon : ''}</td>
+                                <td>
+                                    <button onclick="editProduct('${product.MaHH}')">Sửa</button>
+                                    <button onclick="deleteProduct('${product.MaHH}')">Xoá</button>
+                                </td>
+                            </tr>
+                        `;
+                        productTableBody.innerHTML += row;
+                    });
+                } else {
+                    productTableBody.innerHTML = '<tr><td colspan="8">Không có dữ liệu</td></tr>';
+                }
+            } catch (e) {
+                productTableBody.innerHTML = '<tr><td colspan="8">Lỗi kết nối API</td></tr>';
+            }
+        }
+
+        // Thêm sản phẩm mới hoặc cập nhật nếu đang sửa
+        let editingMaHH = null;
+        async function addProduct() {
+            const product = {
+                MaHH: document.getElementById('MaHH').value.trim(),
+                TenHH: document.getElementById('TenHH').value.trim(),
+                Loai: document.getElementById('Loai').value.trim(),
+                DonVi: document.getElementById('DonVi').value.trim(),
+                GiaNhap: parseFloat(document.getElementById('GiaNhap').value) || 0,
+                GiaBan: parseFloat(document.getElementById('GiaBan').value) || 0,
+                SoLuongTon: parseInt(document.getElementById('SoLuongTon').value) || 0
+            };
+
+            if (!product.MaHH || !product.TenHH) {
+                alert("Vui lòng nhập đầy đủ Mã HH và Tên HH.");
+                return;
+            }
+
+            if (editingMaHH) {
+                // Gọi API cập nhật
+                try {
+                    const res = await fetch(`http://localhost:5000/api/hanghoa/${editingMaHH}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(product)
+                    });
+                    const result = await res.json();
+                    if (res.ok) {
+                        loadProducts();
+                        document.getElementById('productForm').reset();
+                        editingMaHH = null;
+                        document.querySelector('#productForm button').innerText = 'Thêm Sản Phẩm';
+                    } else {
+                        alert(result.error || 'Lỗi khi cập nhật sản phẩm!');
+                    }
+                } catch (e) {
+                    alert('Không thể kết nối API!');
+                }
+            } else {
+                // Gọi API thêm mới
+                try {
+                    const res = await fetch('http://localhost:5000/api/hanghoa', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(product)
+                    });
+                    const result = await res.json();
+                    if (res.ok) {
+                        loadProducts();
+                        document.getElementById('productForm').reset();
+                    } else {
+                        alert(result.error || 'Lỗi khi thêm sản phẩm!');
+                    }
+                } catch (e) {
+                    alert('Không thể kết nối API!');
+                }
+            }
+        }
+
+        // Sửa sản phẩm: điền dữ liệu lên form
+        async function editProduct(mahh) {
+            try {
+                const res = await fetch('http://localhost:5000/api/hanghoa');
+                const data = await res.json();
+                const product = data.find(p => p.MaHH === mahh);
+                if (product) {
+                    document.getElementById('MaHH').value = product.MaHH;
+                    document.getElementById('TenHH').value = product.TenHH;
+                    document.getElementById('Loai').value = product.Loai;
+                    document.getElementById('DonVi').value = product.DonVi;
+                    document.getElementById('GiaNhap').value = product.GiaNhap;
+                    document.getElementById('GiaBan').value = product.GiaBan;
+                    document.getElementById('SoLuongTon').value = product.SoLuongTon;
+                    editingMaHH = mahh;
+                    document.querySelector('#productForm button').innerText = 'Cập nhật';
+                }
+            } catch (e) {
+                alert('Không thể kết nối API!');
+            }
+        }
+
+        // Xoá sản phẩm
+        async function deleteProduct(mahh) {
+            if (!confirm('Bạn có chắc muốn xoá sản phẩm này?')) return;
+            try {
+                const res = await fetch(`http://localhost:5000/api/hanghoa/${mahh}`, {
+                    method: 'DELETE'
+                });
+                const result = await res.json();
+                if (res.ok) {
+                    loadProducts();
+                    if (editingMaHH === mahh) {
+                        document.getElementById('productForm').reset();
+                        editingMaHH = null;
+                        document.querySelector('#productForm button').innerText = 'Thêm Sản Phẩm';
+                    }
+                } else {
+                    alert(result.error || 'Lỗi khi xoá sản phẩm!');
+                }
+            } catch (e) {
+                alert('Không thể kết nối API!');
+            }
+        }
+
+        // Khi trang vừa mở, load dữ liệu thật
+        window.onload = loadProducts;
+    </script>
+
+</body>
+</html>
